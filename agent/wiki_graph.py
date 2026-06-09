@@ -43,14 +43,15 @@ DEFAULT_NODE_COLOR = "white"
 # Index parsing
 # ---------------------------------------------------------------------------
 
-# Matches rows like: | Massachusetts OCPF | MA state & local | [massachusetts-ocpf.md](...) |
-_INDEX_ROW_RE = re.compile(
-    r"^\|\s*(?P<name>[^|]+?)\s*\|\s*(?P<jurisdiction>[^|]*?)\s*\|\s*"
-    r"\[(?P<link_text>[^\]]+)\]\((?P<path>[^)]+)\)\s*\|",
-)
+# Matches a markdown link anywhere in a cell: [text](path)
+_LINK_RE = re.compile(r"\[(?P<text>[^\]]+)\]\((?P<path>[^)]+)\)")
 
-# Matches category headers like: ### Campaign Finance
-_CATEGORY_RE = re.compile(r"^###\s+(.+)$")
+# Category labels: any heading level >= 2 (## .. ######).  Tolerant of whatever
+# heading depth the model chooses; the H1 document title is ignored.
+_CATEGORY_RE = re.compile(r"^#{2,}\s+(.+)$")
+
+# A markdown table separator cell, e.g. ---, :--, --:, :--:
+_SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
 
 
 @dataclass
@@ -70,27 +71,61 @@ def _category_slug(display_name: str) -> str:
 
 
 def parse_index(wiki_dir: Path) -> list[WikiEntry]:
-    """Parse wiki/index.md and return entries with name, category, path."""
+    """Parse wiki/index.md and return entries with name, category, path.
+
+    Tolerant of layout: category labels may use any heading level (``##``+),
+    and the entry link may appear in any table column.  The entry name is taken
+    from the first non-link, non-empty cell (falling back to the link text).
+    This accepts both the canonical baseline layout
+    (``| Name | Jurisdiction | [link](path) |``) and looser tables the model
+    may produce (e.g. the link in the second column).
+    """
     index_path = wiki_dir / "index.md"
     if not index_path.is_file():
         return []
 
     entries: list[WikiEntry] = []
     current_category = ""
-    for line in index_path.read_text(encoding="utf-8").splitlines():
+    for raw in index_path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
         cat_m = _CATEGORY_RE.match(line)
         if cat_m:
             current_category = _category_slug(cat_m.group(1))
             continue
-        row_m = _INDEX_ROW_RE.match(line)
-        if row_m:
-            entries.append(
-                WikiEntry(
-                    name=row_m.group("name").strip(),
-                    category=current_category,
-                    rel_path=row_m.group("path").strip(),
-                )
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        # Skip table separator rows, e.g. | --- | --- |
+        if cells and all(_SEPARATOR_CELL_RE.match(c) for c in cells if c):
+            continue
+        # Locate the first cell linking to a .md entry file.
+        link_m = None
+        link_idx = -1
+        for i, cell in enumerate(cells):
+            m = _LINK_RE.search(cell)
+            if m and m.group("path").strip().endswith(".md"):
+                link_m = m
+                link_idx = i
+                break
+        if link_m is None:
+            continue
+        # Name = first non-link, non-empty cell; fall back to the link text.
+        name = ""
+        for i, cell in enumerate(cells):
+            if i == link_idx or not cell:
+                continue
+            if not _LINK_RE.search(cell):
+                name = cell
+                break
+        if not name:
+            name = link_m.group("text").strip()
+        entries.append(
+            WikiEntry(
+                name=name,
+                category=current_category,
+                rel_path=link_m.group("path").strip(),
             )
+        )
     return entries
 
 

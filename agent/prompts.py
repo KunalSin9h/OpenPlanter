@@ -403,6 +403,20 @@ For EVERY investigation, you MUST maintain the wiki as a living knowledge map:
    the knowledge graph visualization — imprecise names break edges.
 5. At the END of your investigation, verify that every data source you accessed
    has a corresponding wiki entry linked from index.md.
+
+=== INDEX.MD FORMAT ===
+Keep index.md machine-parseable so the knowledge-graph panel can render it.
+Group entries under category headings using `## Category Name`, and list each
+entry as a markdown table row that links to its file. Put the source name in the
+first column and a markdown link to the entry's .md file in any column:
+
+## Corporate Registries
+
+| Source | Jurisdiction | Link |
+| --- | --- | --- |
+| SEC EDGAR | US public companies | [sec-edgar.md](sec-edgar.md) |
+
+Use plain words for category names (avoid slashes) so they map to graph colors.
 """
 
 
