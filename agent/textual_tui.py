@@ -21,6 +21,7 @@ from textual.message import Message
 from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Footer, Header, Input, RichLog, Static
+from textual.theme import Theme
 
 from .config import AgentConfig
 from .engine import _DEFAULT_CONTEXT_WINDOW, _MODEL_CONTEXT_WINDOWS, RLMEngine
@@ -203,17 +204,17 @@ class ActivityIndicator(Widget):
         step_part = f"  {step_label}" if step_label else ""
 
         if mode == "thinking":
-            header = f"Thinking...  ({elapsed:.1f}s){step_part}"
-            style = "bold cyan"
+            header = f"◇ Thinking...  ({elapsed:.1f}s){step_part}"
+            style = f"bold {_C_SECONDARY}"
         elif mode == "streaming":
-            header = f"Responding...  ({elapsed:.1f}s){step_part}"
-            style = "bold green"
+            header = f"▸ Responding...  ({elapsed:.1f}s){step_part}"
+            style = f"bold {_C_PRIMARY}"
         elif mode == "tool_args":
-            header = f"Generating {tool_arg_name}...  ({elapsed:.1f}s){step_part}"
-            style = "bold yellow"
+            header = f"◌ Generating {tool_arg_name}...  ({elapsed:.1f}s){step_part}"
+            style = f"bold {_C_ACCENT}"
         else:  # tool
-            header = f"Running {tool_name}...  ({elapsed:.1f}s){step_part}"
-            style = "bold yellow"
+            header = f"● Running {tool_name}...  ({elapsed:.1f}s){step_part}"
+            style = f"bold {_C_ACCENT}"
 
         result = Text()
         result.append(header, style=style)
@@ -338,44 +339,102 @@ class WikiGraphCanvas(Widget):
 # OpenPlanter Textual App
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Theme
+# ---------------------------------------------------------------------------
+
+# A modern "midnight emerald" palette.  The same accent hexes are reused below
+# for the Rich-markup styles written into the log so CSS and inline text match.
+_C_PRIMARY = "#8aa0c8"    # steel periwinkle — panels, step headers, responding
+_C_SECONDARY = "#6e7891"  # slate grey — thinking, command echoes
+_C_ACCENT = "#b3a4e0"     # soft lavender — user input, tool activity, graph title
+
+OPENPLANTER_THEME = Theme(
+    name="openplanter",
+    primary=_C_PRIMARY,
+    secondary=_C_SECONDARY,
+    accent=_C_ACCENT,
+    foreground="#d7dbe3",
+    background="#0d0f14",
+    surface="#14171f",
+    panel="#1a1e28",
+    success="#4ade80",
+    warning="#fbbf24",
+    error="#f87171",
+    dark=True,
+    variables={
+        "input-selection-background": "#8aa0c8 35%",
+    },
+)
+
+
 class OpenPlanterApp(App):
     """Textual App for OpenPlanter with chat pane and wiki graph panel."""
 
     CSS = """
+    Screen {
+        background: $background;
+    }
     #main-container {
         height: 1fr;
+        padding: 1 1 0 1;
     }
     #chat-pane {
         width: 3fr;
         height: 1fr;
+        padding: 0 1 0 0;
     }
     #message-log {
         height: 1fr;
-        border: round $accent;
+        background: $surface;
+        color: $foreground;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-align: left;
+        padding: 0 1;
         scrollbar-size: 1 1;
+        scrollbar-color: $primary;
+        scrollbar-background: $surface;
     }
     #activity {
         height: auto;
         max-height: 10;
+        padding: 0 1;
+        color: $text-muted;
     }
     #prompt-input {
         dock: bottom;
-        margin: 0 0;
+        margin: 1 0 0 0;
+        background: $panel;
+        color: $foreground;
+        border: round $secondary;
+        border-title-color: $secondary;
+        padding: 0 1;
+    }
+    #prompt-input:focus {
+        border: round $accent;
+        border-title-color: $accent;
     }
     #graph-pane {
         width: 1fr;
         height: 1fr;
-        border: round $accent;
+        background: $surface;
+        border: round $primary;
+        border-title-color: $primary;
+        border-title-align: left;
         padding: 0 1;
     }
     #graph-title {
         text-align: center;
         text-style: bold;
+        color: $accent;
         height: 1;
+        margin: 0 0 1 0;
     }
     #graph-legend {
         height: 1;
         text-align: center;
+        color: $text-muted;
     }
     """
 
@@ -436,10 +495,16 @@ class OpenPlanterApp(App):
 
     def on_mount(self) -> None:
         """Called when the app is ready."""
+        # Apply the custom theme before content renders.
+        self.register_theme(OPENPLANTER_THEME)
+        self.theme = "openplanter"
+
         log = self.query_one("#message-log", RichLog)
+        log.border_title = "Conversation"
+        self.query_one("#prompt-input", Input).border_title = "Message"
 
         # Show splash art
-        log.write(Text(SPLASH_ART, style="bold cyan"))
+        log.write(Text(SPLASH_ART, style=f"bold {_C_PRIMARY}"))
         log.write("")
 
         # Show startup info
@@ -517,13 +582,13 @@ class OpenPlanterApp(App):
             return
 
         # Show user prompt
-        log.write(Text(f"you> {user_input}", style="bold"), scroll_end=True)
+        log.write(Text(f"❯ {user_input}", style=f"bold {_C_ACCENT}"), scroll_end=True)
 
         # Handle slash commands
         result = dispatch_slash_command(
             user_input,
             self.ctx,
-            emit=lambda line: log.write(Text(line, style="cyan"), scroll_end=True),
+            emit=lambda line: log.write(Text(line, style=_C_SECONDARY), scroll_end=True),
         )
         if result == "quit":
             self.exit()
@@ -685,7 +750,7 @@ class OpenPlanterApp(App):
         # Process queued inputs
         if self._queued_inputs:
             next_input = self._queued_inputs.pop(0)
-            log.write(Text(f"you> {next_input}", style="bold"), scroll_end=True)
+            log.write(Text(f"❯ {next_input}", style=f"bold {_C_ACCENT}"), scroll_end=True)
             log.write("")
             self._agent_running = True
             self._current_step = None
@@ -735,9 +800,9 @@ class OpenPlanterApp(App):
         right = " | ".join(right_parts) if right_parts else ""
 
         header_text = Text()
-        header_text.append(f"--- {left}", style="bold cyan")
+        header_text.append(f"─── {left}", style=f"bold {_C_PRIMARY}")
         header_text.append(right, style="dim")
-        header_text.append(" ---", style="bold cyan")
+        header_text.append(" ───", style=f"bold {_C_PRIMARY}")
         log.write(header_text, scroll_end=True)
 
         # Model text preview
