@@ -189,6 +189,71 @@ class SessionStore:
         meta_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
 
 
+_DEFAULT_WIKI_TEMPLATE = """# [Data Source Name]
+
+## Summary
+
+One-paragraph overview: what this dataset contains, who publishes it, and why it
+matters for investigations.
+
+## Access Methods
+
+How to obtain the data (bulk download, API, scraping, FOIA). Include URLs,
+authentication requirements, and rate limits.
+
+## Data Schema
+
+Key fields, record types, and relationships between tables.
+
+## Coverage
+
+- **Jurisdiction**: Geographic or organizational scope
+- **Time range**: Earliest and latest records available
+- **Update frequency**: How often the publisher refreshes the data
+
+## Cross-Reference Potential
+
+Which other data sources can be joined to this one, and on what keys. Reference
+other sources by their **exact name** as it appears in index.md.
+
+## Data Quality
+
+Known issues: inconsistent formatting, missing fields, duplicates.
+
+## References
+
+Links to official documentation, data dictionaries, and prior analyses.
+"""
+
+_DEFAULT_WIKI_INDEX = """# Data Sources Wiki — Index
+
+A living knowledge map of data sources accessed during investigations. Group
+entries under `## Category` headings and list each as a table row that links to
+its entry file (source name in the first column, link in any column).
+
+## Sources by Category
+"""
+
+
+def _ensure_wiki_scaffold(workspace: Path, session_root_dir: str) -> None:
+    """Ensure the runtime wiki has a template and a format-correct index.
+
+    Unlike :func:`_seed_wiki` (which only copies an existing committed
+    ``wiki/`` baseline), this guarantees that fresh workspaces with no baseline
+    still get a ``template.md`` and a canonically-formatted ``index.md`` for the
+    agent to extend, so the knowledge-graph panel can parse what it writes.
+    Never overwrites existing files.
+    """
+    runtime_wiki = workspace / session_root_dir / "wiki"
+    runtime_wiki.mkdir(parents=True, exist_ok=True)
+    template = runtime_wiki / "template.md"
+    if not template.exists():
+        template.write_text(_DEFAULT_WIKI_TEMPLATE, encoding="utf-8")
+    index = runtime_wiki / "index.md"
+    if not index.exists():
+        index.write_text(_DEFAULT_WIKI_INDEX, encoding="utf-8")
+
+
 def _seed_wiki(workspace: Path, session_root_dir: str) -> None:
     """Copy baseline wiki/ into the runtime .openplanter/wiki/ directory.
 
@@ -243,6 +308,10 @@ class SessionRuntime:
         )
         try:
             _seed_wiki(config.workspace, config.session_root_dir)
+        except OSError:
+            pass
+        try:
+            _ensure_wiki_scaffold(config.workspace, config.session_root_dir)
         except OSError:
             pass
         sid, state, created_new = store.open_session(session_id=session_id, resume=resume)
