@@ -342,8 +342,13 @@ class WikiGraphModel:
             self._layout = {}
             return
 
-        # Use spring layout with some spacing
-        pos = nx.spring_layout(self._graph, seed=42, k=2.0)
+        # Use spring layout with some spacing.  spring_layout requires numpy;
+        # if it is unavailable (or otherwise fails) fall back to a pure-Python
+        # circular layout so the graph still renders.
+        try:
+            pos = nx.spring_layout(self._graph, seed=42, k=2.0)
+        except Exception:
+            pos = self._fallback_layout()
 
         # Scale to [1, width-2] x [1, height-2] (leaving border margin)
         xs = [p[0] for p in pos.values()]
@@ -362,6 +367,25 @@ class WikiGraphModel:
             nx_ = 2 + (x - x_min) / x_range * (width - 4)
             ny_ = 1 + (y - y_min) / y_range * (height - 3)
             self._layout[node] = (nx_, ny_)
+
+    def _fallback_layout(self) -> dict[str, tuple[float, float]]:
+        """Pure-Python circular layout used when numpy/spring_layout is absent.
+
+        Returns the same ``{node: (x, y)}`` shape as ``nx.spring_layout`` with
+        coordinates in roughly [-1, 1], so the downstream scaling is identical.
+        """
+        import math
+
+        nodes = list(self._graph.nodes()) if self._graph is not None else []
+        n = len(nodes)
+        if n == 0:
+            return {}
+        if n == 1:
+            return {nodes[0]: (0.0, 0.0)}
+        return {
+            node: (math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n))
+            for i, node in enumerate(nodes)
+        }
 
     @property
     def is_dirty(self) -> bool:
