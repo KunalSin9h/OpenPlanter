@@ -486,11 +486,11 @@ Group entries under category headings using `## Category Name`, and list each
 entry as a markdown table row that links to its file. Put the source name in the
 first column and a markdown link to the entry's .md file in any column:
 
-## Corporate Registries
+## Advisories
 
-| Source | Jurisdiction | Link |
+| Source | Scope | Link |
 | --- | --- | --- |
-| SEC EDGAR | US public companies | [sec-edgar.md](sec-edgar.md) |
+| OSV.dev | Multi-ecosystem vulns + malware | [osv.md](osv.md) |
 
 Use plain words for category names (avoid slashes) so they map to graph colors.
 """
