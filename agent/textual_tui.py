@@ -117,9 +117,8 @@ class ActivityIndicator(Widget):
 
     mode: reactive[str] = reactive("idle")
 
-    def __init__(self, censor_fn: Any = None, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self._censor_fn = censor_fn
         self._lock = threading.Lock()
         self._text_buf: str = ""
         self._step_label: str = ""
@@ -197,9 +196,6 @@ class ActivityIndicator(Widget):
             tool_key_arg = self._tool_key_arg
             tool_arg_buf = self._tool_arg_buf
             tool_arg_name = self._tool_arg_name
-
-        if self._censor_fn:
-            buf = self._censor_fn(buf)
 
         step_part = f"  {step_label}" if step_label else ""
 
@@ -458,12 +454,6 @@ class OpenPlanterApp(App):
         self._wiki_dir = self._resolve_wiki_dir()
         self._watcher: Any = None
 
-        # Demo mode censor
-        self._censor_fn = None
-        if ctx.cfg.demo:
-            from .demo import DemoCensor
-            self._censor_fn = DemoCensor(ctx.cfg.workspace).censor_text
-
     def _resolve_wiki_dir(self) -> Path | None:
         """Find the wiki directory for graph display.
 
@@ -485,7 +475,7 @@ class OpenPlanterApp(App):
         with Horizontal(id="main-container"):
             with Vertical(id="chat-pane"):
                 yield RichLog(id="message-log", highlight=True, markup=True, wrap=True)
-                yield ActivityIndicator(censor_fn=self._censor_fn, id="activity")
+                yield ActivityIndicator(id="activity")
                 yield Input(placeholder="Type a message or /help...", id="prompt-input")
             with Vertical(id="graph-pane"):
                 yield Static("Wiki Knowledge Graph", id="graph-title")
@@ -510,8 +500,6 @@ class OpenPlanterApp(App):
         # Show startup info
         for key, val in self._startup_info.items():
             text = f"  {key:>10}  {val}"
-            if self._censor_fn:
-                text = self._censor_fn(text)
             log.write(Text(text, style="dim"))
         log.write("")
         log.write(Text("Type /help for commands. ESC to cancel a running task.", style="dim"))
@@ -735,8 +723,6 @@ class OpenPlanterApp(App):
 
         # Render markdown result
         answer = message.result
-        if self._censor_fn:
-            answer = self._censor_fn(answer)
         log.write(_LeftMarkdown(answer), scroll_end=True)
 
         # Token summary
@@ -810,8 +796,6 @@ class OpenPlanterApp(App):
             preview = step.model_text.strip()
             if len(preview) > 200:
                 preview = preview[:197] + "..."
-            if self._censor_fn:
-                preview = self._censor_fn(preview)
             log.write(Text(f"  ({step.model_elapsed_sec:.1f}s) {preview}", style="dim"), scroll_end=True)
 
         # Tool call tree
@@ -825,10 +809,7 @@ class OpenPlanterApp(App):
             parts.append(f"  {connector} ", style="dim")
             parts.append(f"{tc.name}", style=name_style)
             if tc.key_arg:
-                arg = tc.key_arg
-                if self._censor_fn:
-                    arg = self._censor_fn(arg)
-                parts.append(f'  "{arg}"', style="dim")
+                parts.append(f'  "{tc.key_arg}"', style="dim")
             parts.append(f"  {tc.elapsed_sec:.1f}s", style="dim")
             log.write(parts, scroll_end=True)
 

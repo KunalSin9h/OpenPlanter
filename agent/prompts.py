@@ -370,20 +370,6 @@ BAD criteria (not independently checkable):
 """
 
 
-DEMO_SECTION = """
-
-## Demo Mode (ACTIVE)
-
-You are running in demo mode. Malicious package names, IOCs, and indicators are public
-threat intelligence — leave them visible. Instead, you MUST censor any VICTIM- or
-customer-identifying data (real people's names, private email addresses, internal
-hostnames, organization names of compromised parties) in your final answers and tool
-outputs by replacing them with same-length blocks of █ characters. For example
-"John Smith" becomes "██████████". Do NOT censor package names, registry accounts,
-C2 domains, hashes, generic technical terms, months, days, or programming language names.
-"""
-
-
 SESSION_LOGS_SECTION = """
 == SESSION LOGS AND TRANSCRIPTS ==
 Your session directory (provided as session_dir in your initial message) contains
@@ -477,7 +463,6 @@ Use plain words for category names (avoid slashes) so they map to graph colors.
 def build_system_prompt(
     recursive: bool,
     acceptance_criteria: bool = False,
-    demo: bool = False,
 ) -> str:
     """Assemble the system prompt, including recursion sections only when enabled."""
     prompt = SYSTEM_PROMPT_BASE
@@ -489,6 +474,4 @@ def build_system_prompt(
         prompt += RECURSIVE_SECTION
     if acceptance_criteria:
         prompt += ACCEPTANCE_CRITERIA_SECTION
-    if demo:
-        prompt += DEMO_SECTION
     return prompt

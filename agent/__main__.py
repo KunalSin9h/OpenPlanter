@@ -137,11 +137,6 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable acceptance criteria: subtask/execute results are judged by a lightweight model.",
     )
-    parser.add_argument(
-        "--demo",
-        action="store_true",
-        help="Censor entity names and workspace path segments in output (UI-only).",
-    )
     return parser
 
 
@@ -325,17 +320,11 @@ def _apply_runtime_overrides(cfg: AgentConfig, args: argparse.Namespace, creds: 
         cfg.recursive = True
     if args.acceptance_criteria:
         cfg.acceptance_criteria = True
-    if args.demo:
-        cfg.demo = True
 
 
 def run_plain_repl(ctx: ChatContext) -> None:
-    from .demo import DemoCensor
-
-    censor_fn = DemoCensor(ctx.cfg.workspace).censor_text if ctx.cfg.demo else None
-
     def _out(text: str) -> None:
-        print(censor_fn(text) if censor_fn else text)
+        print(text)
 
     _out("OpenPlanter Agent (plain mode). Type /quit to exit.")
     while True:
@@ -563,25 +552,16 @@ def main() -> None:
 
     ctx = ChatContext(runtime=runtime, cfg=cfg, settings_store=settings_store)
 
-    # Build optional censor for headless / plain text paths.
-    censor_fn = None
-    if cfg.demo:
-        from .demo import DemoCensor
-        censor_fn = DemoCensor(cfg.workspace).censor_text
-
     def _print_startup(info: dict[str, str]) -> None:
         for key, val in info.items():
-            line = f"{key:>10}  {val}"
-            print(censor_fn(line) if censor_fn else line)
+            print(f"{key:>10}  {val}")
         print()
 
     if args.task:
         # Headless task mode — print config plainly, then run.
         _print_startup(startup_info)
-        result = runtime.solve(args.task, on_event=lambda ev: print(
-            censor_fn(f"trace> {_clip_event(ev)}") if censor_fn else f"trace> {_clip_event(ev)}"
-        ))
-        print(censor_fn(result) if censor_fn else result)
+        result = runtime.solve(args.task, on_event=lambda ev: print(f"trace> {_clip_event(ev)}"))
+        print(result)
         return
 
     if args.no_tui:
