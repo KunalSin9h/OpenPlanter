@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import threading
 import urllib.error
+import urllib.parse
 import urllib.request
 import re as _re
 import zlib
@@ -56,6 +57,9 @@ class WorkspaceTools:
     max_search_hits: int = 200
     exa_api_key: str | None = None
     exa_base_url: str = "https://api.exa.ai"
+    voyage_api_key: str | None = None
+    voyage_model: str = "voyage-3.5"
+    github_token: str | None = None
 
     def __post_init__(self) -> None:
         self.root = self.root.expanduser().resolve()
@@ -885,3 +889,385 @@ class WorkspaceTools:
             "total": len(pages),
         }
         return self._clip(json.dumps(output, indent=2, ensure_ascii=True), self.max_file_chars)
+
+    # ------------------------------------------------------------------
+    # Supply-chain malware investigation tools
+    # ------------------------------------------------------------------
+
+    _USER_AGENT = "OpenPlanter-investigator/1.0"
+
+    def _http_json(
+        self,
+        url: str,
+        method: str = "GET",
+        data: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        timeout: int | None = None,
+    ) -> Any:
+        """Issue an HTTP request expecting a JSON response. Raises ToolError."""
+        body = json.dumps(data).encode("utf-8") if data is not None else None
+        hdrs = {"User-Agent": self._USER_AGENT, "Accept": "application/json"}
+        if body is not None:
+            hdrs["Content-Type"] = "application/json"
+        if headers:
+            hdrs.update(headers)
+        req = urllib.request.Request(url=url, data=body, headers=hdrs, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=timeout or self.command_timeout_sec) as resp:
+                raw = resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as exc:
+            detail = exc.read().decode("utf-8", errors="replace")[:500]
+            raise ToolError(f"HTTP {exc.code} from {url}: {detail}") from exc
+        except (urllib.error.URLError, OSError) as exc:
+            raise ToolError(f"Network error for {url}: {exc}") from exc
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ToolError(f"Non-JSON response from {url}: {raw[:300]}") from exc
+
+    def _http_bytes(self, url: str, timeout: int | None = None) -> bytes:
+        """Download raw bytes (e.g. a package tarball). Raises ToolError."""
+        req = urllib.request.Request(url=url, headers={"User-Agent": self._USER_AGENT})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout or self.command_timeout_sec) as resp:
+                return resp.read()
+        except urllib.error.HTTPError as exc:
+            raise ToolError(f"HTTP {exc.code} downloading {url}") from exc
+        except (urllib.error.URLError, OSError) as exc:
+            raise ToolError(f"Network error downloading {url}: {exc}") from exc
+
+    @staticmethod
+    def _normalize_ecosystem(eco: str) -> str:
+        e = (eco or "").strip().lower()
+        if e in ("npm", "node", "nodejs"):
+            return "npm"
+        if e in ("pypi", "pip", "python"):
+            return "PyPI"
+        return eco.strip()
+
+    def osv_query(self, name: str, ecosystem: str, version: str | None = None) -> str:
+        """Query OSV.dev for advisories (incl. MAL- malicious-package IDs)."""
+        name = (name or "").strip()
+        eco = self._normalize_ecosystem(ecosystem)
+        if not name or not eco:
+            return "osv_query requires name and ecosystem"
+        payload: dict[str, Any] = {"package": {"ecosystem": eco, "name": name}}
+        if version and version.strip():
+            payload["version"] = version.strip()
+        try:
+            parsed = self._http_json("https://api.osv.dev/v1/query", method="POST", data=payload)
+        except ToolError as exc:
+            return f"osv_query failed: {exc}"
+        vulns = parsed.get("vulns", []) if isinstance(parsed, dict) else []
+        out = []
+        for v in vulns:
+            if not isinstance(v, dict):
+                continue
+            vid = str(v.get("id", ""))
+            out.append({
+                "id": vid,
+                "malicious": vid.startswith("MAL-"),
+                "summary": str(v.get("summary", ""))[:300],
+                "aliases": v.get("aliases", []),
+                "modified": v.get("modified", ""),
+            })
+        result = {
+            "package": name,
+            "ecosystem": eco,
+            "version": version or "(all)",
+            "advisory_count": len(out),
+            "malicious_flagged": any(o["malicious"] for o in out),
+            "advisories": out,
+        }
+        return self._clip(json.dumps(result, indent=2, ensure_ascii=True), self.max_file_chars)
+
+    def depsdev_lookup(self, system: str, name: str, version: str | None = None) -> str:
+        """Look up package/version metadata, advisories, and provenance on deps.dev."""
+        name = (name or "").strip()
+        eco = self._normalize_ecosystem(system)
+        sysmap = {"npm": "npm", "PyPI": "pypi"}
+        sys_path = sysmap.get(eco, eco.lower())
+        if not name or not sys_path:
+            return "depsdev_lookup requires system and name"
+        enc_name = urllib.parse.quote(name, safe="")
+        base = f"https://api.deps.dev/v3/systems/{sys_path}/packages/{enc_name}"
+        url = base
+        if version and version.strip():
+            url = f"{base}/versions/{urllib.parse.quote(version.strip(), safe='')}"
+        try:
+            parsed = self._http_json(url)
+        except ToolError as exc:
+            return f"depsdev_lookup failed: {exc}"
+        return self._clip(json.dumps(parsed, indent=2, ensure_ascii=True), self.max_file_chars)
+
+    def _npm_packument(self, name: str) -> dict[str, Any]:
+        enc = urllib.parse.quote(name, safe="@/") if name.startswith("@") else urllib.parse.quote(name, safe="")
+        data = self._http_json(f"https://registry.npmjs.org/{enc}")
+        if not isinstance(data, dict):
+            raise ToolError("Unexpected npm registry response")
+        return data
+
+    def _pypi_project(self, name: str) -> dict[str, Any]:
+        data = self._http_json(f"https://pypi.org/pypi/{urllib.parse.quote(name, safe='')}/json")
+        if not isinstance(data, dict):
+            raise ToolError("Unexpected PyPI response")
+        return data
+
+    def registry_metadata(self, ecosystem: str, name: str) -> str:
+        """Fetch and summarize npm packument or PyPI project metadata."""
+        name = (name or "").strip()
+        eco = self._normalize_ecosystem(ecosystem)
+        if not name:
+            return "registry_metadata requires name"
+        try:
+            if eco == "npm":
+                p = self._npm_packument(name)
+                versions = list((p.get("versions") or {}).keys())
+                latest = (p.get("dist-tags") or {}).get("latest")
+                lv = (p.get("versions") or {}).get(latest, {}) if latest else {}
+                summary = {
+                    "ecosystem": "npm",
+                    "name": p.get("name", name),
+                    "latest": latest,
+                    "version_count": len(versions),
+                    "versions": versions[-25:],
+                    "maintainers": p.get("maintainers", []),
+                    "time_created": (p.get("time") or {}).get("created"),
+                    "time_modified": (p.get("time") or {}).get("modified"),
+                    "latest_scripts": lv.get("scripts", {}),
+                    "latest_dist": {k: lv.get("dist", {}).get(k) for k in ("tarball", "integrity", "shasum") if isinstance(lv.get("dist"), dict)},
+                    "repository": lv.get("repository"),
+                    "homepage": lv.get("homepage"),
+                }
+            elif eco == "PyPI":
+                p = self._pypi_project(name)
+                info = p.get("info", {})
+                releases = list((p.get("releases") or {}).keys())
+                summary = {
+                    "ecosystem": "PyPI",
+                    "name": info.get("name", name),
+                    "version": info.get("version"),
+                    "release_count": len(releases),
+                    "releases": releases[-25:],
+                    "author": info.get("author"),
+                    "author_email": info.get("author_email"),
+                    "maintainer": info.get("maintainer"),
+                    "project_urls": info.get("project_urls"),
+                    "requires_dist": info.get("requires_dist"),
+                    "vulnerabilities": p.get("vulnerabilities", []),
+                    "latest_files": [
+                        {"filename": u.get("filename"), "packagetype": u.get("packagetype"),
+                         "url": u.get("url"), "sha256": (u.get("digests") or {}).get("sha256"),
+                         "upload_time": u.get("upload_time_iso_8601")}
+                        for u in (p.get("urls") or []) if isinstance(u, dict)
+                    ],
+                }
+            else:
+                return f"registry_metadata: unsupported ecosystem '{ecosystem}' (use npm or PyPI)"
+        except ToolError as exc:
+            return f"registry_metadata failed: {exc}"
+        return self._clip(json.dumps(summary, indent=2, ensure_ascii=True), self.max_file_chars)
+
+    def _safe_extract_tar(self, data: bytes, dest: Path) -> int:
+        import io
+        import tarfile
+        count = 0
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as tf:
+            for member in tf.getmembers():
+                if not (member.isfile() or member.isdir()):
+                    continue  # skip symlinks/devices/hardlinks — never extract executable links
+                target = (dest / member.name).resolve()
+                if dest not in target.parents and target != dest:
+                    continue  # path traversal guard
+                if member.isdir():
+                    target.mkdir(parents=True, exist_ok=True)
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                src = tf.extractfile(member)
+                if src is None:
+                    continue
+                target.write_bytes(src.read())
+                target.chmod(0o600)  # never executable
+                count += 1
+        return count
+
+    def _safe_extract_zip(self, data: bytes, dest: Path) -> int:
+        import io
+        import zipfile
+        count = 0
+        with zipfile.ZipFile(io.BytesIO(data)) as zf:
+            for info in zf.infolist():
+                if info.is_dir():
+                    continue
+                target = (dest / info.filename).resolve()
+                if dest not in target.parents and target != dest:
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(zf.read(info))
+                target.chmod(0o600)
+                count += 1
+        return count
+
+    def download_package(
+        self, ecosystem: str, name: str, version: str | None = None, dest: str | None = None
+    ) -> str:
+        """Download a package distribution and UNPACK it (never install/execute it)."""
+        name = (name or "").strip()
+        eco = self._normalize_ecosystem(ecosystem)
+        if not name:
+            return "download_package requires name"
+        try:
+            if eco == "npm":
+                p = self._npm_packument(name)
+                ver = (version or "").strip() or (p.get("dist-tags") or {}).get("latest")
+                vmeta = (p.get("versions") or {}).get(ver)
+                if not vmeta:
+                    return f"download_package: version '{ver}' not found for npm package {name}"
+                tarball = (vmeta.get("dist") or {}).get("tarball")
+                integrity = (vmeta.get("dist") or {}).get("integrity") or (vmeta.get("dist") or {}).get("shasum")
+                if not tarball:
+                    return f"download_package: no tarball URL for {name}@{ver}"
+                blob = self._http_bytes(tarball)
+                kind = "tar"
+            elif eco == "PyPI":
+                p = self._pypi_project(name)
+                ver = (version or "").strip() or (p.get("info") or {}).get("version")
+                files = (p.get("releases") or {}).get(ver) or []
+                if not files:
+                    return f"download_package: version '{ver}' not found for PyPI package {name}"
+                chosen = next((f for f in files if f.get("packagetype") == "sdist"), files[0])
+                url = chosen.get("url")
+                integrity = (chosen.get("digests") or {}).get("sha256")
+                if not url:
+                    return f"download_package: no distribution URL for {name}=={ver}"
+                blob = self._http_bytes(url)
+                kind = "zip" if str(url).endswith(".whl") else "tar"
+            else:
+                return f"download_package: unsupported ecosystem '{ecosystem}' (use npm or PyPI)"
+        except ToolError as exc:
+            return f"download_package failed: {exc}"
+
+        safe_name = name.replace("/", "__").lstrip("@")
+        rel = dest.strip() if (dest and dest.strip()) else f"samples/{eco}/{safe_name}@{ver}"
+        out_dir = self._resolve_path(rel)
+        try:
+            self._register_write_target(out_dir)
+        except ToolError as exc:
+            return f"Blocked by policy: {exc}"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            n = self._safe_extract_zip(blob, out_dir) if kind == "zip" else self._safe_extract_tar(blob, out_dir)
+        except Exception as exc:  # noqa: BLE001 - surface extraction failure to the model
+            return f"download_package: extraction failed: {exc}"
+        # Build a small file tree for the observation.
+        tree = []
+        for fp in sorted(out_dir.rglob("*")):
+            if fp.is_file():
+                tree.append(f"{fp.relative_to(out_dir).as_posix()} ({fp.stat().st_size}b)")
+        rel_out = out_dir.relative_to(self.root).as_posix()
+        result = {
+            "ecosystem": eco,
+            "package": name,
+            "version": ver,
+            "integrity": integrity,
+            "extracted_to": rel_out,
+            "file_count": n,
+            "files": tree[:200],
+            "note": "Extracted as inert data (mode 0600, no symlinks, no execution). Analyze statically. Do NOT install or run it.",
+        }
+        return self._clip(json.dumps(result, indent=2, ensure_ascii=True), self.max_file_chars)
+
+    def github_code_search(self, query: str, limit: int = 30, language: str | None = None) -> str:
+        """Search public code on GitHub for an IOC. Prefers the gh CLI, falls back to REST."""
+        query = (query or "").strip()
+        if not query:
+            return "github_code_search requires a non-empty query"
+        limit = max(1, min(int(limit or 30), 100))
+        q = f"{query} language:{language.strip()}" if language and language.strip() else query
+        # Prefer gh CLI (richer engine, reuses gh auth).
+        if shutil.which("gh"):
+            cmd = ["gh", "search", "code", q, "--limit", str(limit),
+                   "--json", "repository,path,textMatches"]
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=self.command_timeout_sec)
+            except (subprocess.SubprocessError, OSError) as exc:
+                return f"github_code_search (gh) failed: {exc}"
+            if proc.returncode == 0:
+                return self._clip(proc.stdout or "[]", self.max_file_chars)
+            # fall through to REST on gh failure (e.g. not authenticated)
+            gh_err = (proc.stderr or "").strip()
+        else:
+            gh_err = "gh CLI not installed"
+        # REST fallback.
+        token = (self.github_token or os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN") or "").strip()
+        if not token:
+            return ("github_code_search: no result. gh CLI unavailable/unauthenticated "
+                    f"({gh_err}) and no GITHUB_TOKEN/GH_TOKEN set for the REST fallback. "
+                    "Authenticate `gh auth login` or set a token.")
+        url = "https://api.github.com/search/code?q=" + urllib.parse.quote(q) + f"&per_page={limit}"
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        try:
+            parsed = self._http_json(url, headers=headers)
+        except ToolError as exc:
+            return f"github_code_search (REST) failed: {exc}"
+        items = [{"repo": (i.get("repository") or {}).get("full_name"), "path": i.get("path"),
+                  "url": i.get("html_url")} for i in parsed.get("items", []) if isinstance(i, dict)]
+        result = {"query": q, "total_count": parsed.get("total_count"),
+                  "incomplete_results": parsed.get("incomplete_results"), "items": items}
+        return self._clip(json.dumps(result, indent=2, ensure_ascii=True), self.max_file_chars)
+
+    def yara_scan(self, rules: str, target_path: str, rules_is_path: bool = False) -> str:
+        """Match YARA rules against a file or directory inside the workspace (YARA-X)."""
+        if not (rules or "").strip():
+            return "yara_scan requires rules (inline rule text or a path when rules_is_path=true)"
+        target = self._resolve_path((target_path or "").strip() or ".")
+        if not target.exists():
+            return f"yara_scan: target not found: {target_path}"
+        # Resolve rule source text.
+        if rules_is_path:
+            rule_path = self._resolve_path(rules.strip())
+            if not rule_path.is_file():
+                return f"yara_scan: rules file not found: {rules}"
+            rule_text = rule_path.read_text(encoding="utf-8", errors="replace")
+        else:
+            rule_text = rules
+        # Try the yara_x python binding first.
+        try:
+            import yara_x  # type: ignore
+        except ImportError:
+            yara_x = None  # type: ignore
+        targets = [target] if target.is_file() else [p for p in target.rglob("*") if p.is_file()]
+        targets = targets[:5000]
+        if yara_x is not None:
+            try:
+                compiled = yara_x.compile(rule_text)
+            except Exception as exc:  # noqa: BLE001 - report compile errors to the model
+                return f"yara_scan: rule compile error: {exc}"
+            hits = []
+            for fp in targets:
+                try:
+                    res = compiled.scan(fp.read_bytes())
+                except Exception:  # noqa: BLE001 - skip unreadable files
+                    continue
+                for mr in res.matching_rules:
+                    hits.append({"file": fp.relative_to(self.root).as_posix(), "rule": mr.identifier})
+            return self._clip(json.dumps({"engine": "yara-x", "matches": hits, "match_count": len(hits)},
+                                         indent=2, ensure_ascii=True), self.max_file_chars)
+        # Fall back to the yara-x CLI.
+        if shutil.which("yara-x"):
+            with tempfile.NamedTemporaryFile("w", suffix=".yar", delete=False) as fh:
+                fh.write(rule_text)
+                tmp_rule = fh.name
+            try:
+                proc = subprocess.run(["yara-x", "scan", "-r", tmp_rule, str(target)],
+                                      capture_output=True, text=True, timeout=self.command_timeout_sec)
+                return self._clip(proc.stdout or proc.stderr or "(no matches)", self.max_file_chars)
+            except (subprocess.SubprocessError, OSError) as exc:
+                return f"yara_scan (CLI) failed: {exc}"
+            finally:
+                try:
+                    os.unlink(tmp_rule)
+                except OSError:
+                    pass
+        return ("yara_scan: YARA-X is not available. Install the Python package "
+                "(`pip install yara-x`) or the `yara-x` CLI to enable scanning.")

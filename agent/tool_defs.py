@@ -380,6 +380,103 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "osv_query",
+        "description": "Query OSV.dev for advisories affecting a package, including MAL- malicious-package IDs. No auth required.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string", "description": "Package name (e.g. 'left-pad', '@scope/pkg', 'requests')."},
+                "ecosystem": {"type": "string", "description": "Package ecosystem: 'npm' or 'PyPI'."},
+                "version": {"type": "string", "description": "Optional exact version. Omit to get all advisories for the package."},
+            },
+            "required": ["name", "ecosystem"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "depsdev_lookup",
+        "description": "Look up package or version metadata, dependencies, OSV advisories, and SLSA provenance on deps.dev. No auth.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "system": {"type": "string", "description": "Ecosystem: 'npm' or 'PyPI'."},
+                "name": {"type": "string", "description": "Package name."},
+                "version": {"type": "string", "description": "Optional version. Omit to list versions + default."},
+            },
+            "required": ["system", "name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "registry_metadata",
+        "description": "Fetch and summarize npm packument or PyPI project metadata: versions, maintainers, publish times, install scripts/hooks, and distribution URLs + hashes.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ecosystem": {"type": "string", "description": "'npm' or 'PyPI'."},
+                "name": {"type": "string", "description": "Package name."},
+            },
+            "required": ["ecosystem", "name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "download_package",
+        "description": "Download a package distribution (npm tarball, PyPI sdist/wheel) and UNPACK it into the workspace as inert data for static analysis. NEVER installs or executes the package. Files are extracted non-executable with symlinks stripped.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "ecosystem": {"type": "string", "description": "'npm' or 'PyPI'."},
+                "name": {"type": "string", "description": "Package name."},
+                "version": {"type": "string", "description": "Optional version. Omit for the latest version."},
+                "dest": {"type": "string", "description": "Optional relative dir to unpack into (default samples/<ecosystem>/<name>@<version>)."},
+            },
+            "required": ["ecosystem", "name"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "github_code_search",
+        "description": "Search public source code on GitHub for an indicator (IOC string, install-hook pattern). Uses the gh CLI when available, else the REST API (needs GITHUB_TOKEN/GH_TOKEN).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search string; supports qualifiers like path:, repo:, in:file."},
+                "limit": {"type": "integer", "description": "Max results (1-100, default 30)."},
+                "language": {"type": "string", "description": "Optional language filter (e.g. 'javascript', 'python')."},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "yara_scan",
+        "description": "Match YARA rules against a file or directory inside the workspace using YARA-X. Use to find sibling malicious packages by scanning unpacked samples with a campaign rule.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "rules": {"type": "string", "description": "Inline YARA rule text, OR a path to a .yar file when rules_is_path=true."},
+                "target_path": {"type": "string", "description": "Workspace-relative file or directory to scan."},
+                "rules_is_path": {"type": "boolean", "description": "Set true if 'rules' is a path to a rules file rather than inline text."},
+            },
+            "required": ["rules", "target_path"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "search_wiki",
+        "description": "Semantic search over the data-source wiki (embeddings-backed). Returns the most relevant wiki entries/sections for a query. Falls back gracefully if no embedding key is configured.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Natural-language query, e.g. 'how to find malicious npm install hooks'."},
+                "top_k": {"type": "integer", "description": "Number of results to return (1-20, default 5)."},
+            },
+            "required": ["query"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "list_artifacts",
         "description": "List artifacts from previous subagent runs. Returns ID, objective, and result summary for each.",
         "parameters": {
