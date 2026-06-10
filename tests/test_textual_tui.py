@@ -34,7 +34,6 @@ def _make_mock_ctx():
     ctx = MagicMock()
     ctx.cfg = MagicMock()
     ctx.cfg.workspace = "/tmp/test-workspace"
-    ctx.cfg.demo = False
     ctx.cfg.provider = "openai"
     ctx.cfg.model = "gpt-4o"
     ctx.cfg.reasoning_effort = None
@@ -118,16 +117,6 @@ class TestActivityIndicator:
         indicator.start_activity(mode="thinking")
         indicator.stop_activity()
         assert indicator.mode == "idle"
-
-    def test_censor_fn(self):
-        censor = lambda t: t.replace("secret", "XXXXX")
-        indicator = ActivityIndicator(censor_fn=censor)
-        indicator.start_activity(mode="thinking")
-        indicator.feed("thinking", "this is secret data")
-        text = indicator.render()
-        text_str = str(text)
-        assert "secret" not in text_str
-        assert "XXXXX" in text_str
 
 
 # ---------------------------------------------------------------------------

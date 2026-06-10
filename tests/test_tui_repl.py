@@ -61,7 +61,6 @@ class TestRichREPLInit:
         assert repl._agent_thread is None
         assert repl._agent_result is None
         assert repl._current_step is None
-        assert repl._demo_hook is None
 
     def test_startup_info_defaults_to_empty(self, tmp_path):
         ctx = _make_ctx(tmp_path)

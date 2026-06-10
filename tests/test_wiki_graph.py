@@ -63,16 +63,16 @@ class TestParseIndex:
         entries = parse_index(wiki_dir)
         assert len(entries) > 0
         names = [e.name for e in entries]
-        assert "Massachusetts OCPF" in names
-        assert "FEC Federal Campaign Finance" in names
-        assert "SEC EDGAR" in names
+        assert "OSV.dev" in names
+        assert "npm Registry" in names
+        assert "GuardDog" in names
 
     def test_categories_assigned(self, wiki_dir: Path):
         entries = parse_index(wiki_dir)
         cats = {e.category for e in entries}
-        assert "campaign-finance" in cats
-        assert "government-contracts" in cats
-        assert "corporate-registries" in cats
+        assert "registries" in cats
+        assert "advisories" in cats
+        assert "scanners" in cats
 
     def test_paths_are_relative(self, wiki_dir: Path):
         entries = parse_index(wiki_dir)

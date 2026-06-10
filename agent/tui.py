@@ -498,9 +498,8 @@ class _ActivityDisplay:
       - ``tool_args``  — yellow header with live preview of tool call arguments
     """
 
-    def __init__(self, console: Any, censor_fn: Callable[[str], str] | None = None) -> None:
+    def __init__(self, console: Any) -> None:
         self._console = console
-        self._censor_fn = censor_fn
         self._lock = threading.Lock()
         self._text_buf: str = ""
         self._mode: str = "thinking"  # thinking | streaming | tool | tool_args
@@ -658,9 +657,6 @@ class _ActivityDisplay:
             tool_arg_buf = self._tool_arg_buf
             tool_arg_name = self._tool_arg_name
 
-        if self._censor_fn:
-            buf = self._censor_fn(buf)
-
         step_part = f"  [dim]{step_label}[/dim]" if step_label else ""
 
         if mode == "thinking":
@@ -738,16 +734,7 @@ class RichREPL:
         # Queued input lines (e.g. from slash-command follow-ups)
         self._queued_input: list[str] = []
 
-        # Demo mode: prepare render hook (installed in run() after splash art).
-        censor_fn = None
-        self._demo_hook = None
-        if ctx.cfg.demo:
-            from .demo import DemoCensor, DemoRenderHook
-            censor = DemoCensor(ctx.cfg.workspace)
-            censor_fn = censor.censor_text
-            self._demo_hook = DemoRenderHook(censor)
-
-        self._activity = _ActivityDisplay(self.console, censor_fn=censor_fn)
+        self._activity = _ActivityDisplay(self.console)
 
         history_dir = Path.home() / ".openplanter"
         history_dir.mkdir(parents=True, exist_ok=True)
@@ -982,10 +969,6 @@ class RichREPL:
 
         self.console.clear()
         self.console.print(Text(SPLASH_ART, style="bold cyan"))
-
-        # Install demo render hook AFTER splash art so the header is uncensored.
-        if self._demo_hook is not None:
-            self.console.push_render_hook(self._demo_hook)
 
         if self._startup_info:
             for key, val in self._startup_info.items():

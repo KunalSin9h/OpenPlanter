@@ -165,6 +165,9 @@ def build_engine(cfg: AgentConfig) -> RLMEngine:
         max_search_hits=cfg.max_search_hits,
         exa_api_key=cfg.exa_api_key,
         exa_base_url=cfg.exa_base_url,
+        voyage_api_key=cfg.voyage_api_key,
+        voyage_model=cfg.voyage_model,
+        github_token=cfg.github_token,
     )
 
     try:

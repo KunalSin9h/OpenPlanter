@@ -189,40 +189,41 @@ class SessionStore:
         meta_path.write_text(json.dumps(base, indent=2), encoding="utf-8")
 
 
-_DEFAULT_WIKI_TEMPLATE = """# [Data Source Name]
+_DEFAULT_WIKI_TEMPLATE = """# [Source Name]
 
 ## Summary
 
-One-paragraph overview: what this dataset contains, who publishes it, and why it
-matters for investigations.
+One-paragraph overview: what this source provides, who runs it, and how it helps a
+supply-chain malware investigation (triage, pivoting, attribution, or detection).
 
 ## Access Methods
 
-How to obtain the data (bulk download, API, scraping, FOIA). Include URLs,
-authentication requirements, and rate limits.
+How to query or obtain the data (REST API, bulk download, CLI, git clone). Include
+base URLs, authentication requirements, and rate limits.
 
 ## Data Schema
 
-Key fields, record types, and relationships between tables.
+Key endpoints, request parameters, and the response fields that matter for investigation.
 
 ## Coverage
 
-- **Jurisdiction**: Geographic or organizational scope
-- **Time range**: Earliest and latest records available
-- **Update frequency**: How often the publisher refreshes the data
+- **Ecosystems**: npm, PyPI, etc.
+- **Scope**: what's included vs. excluded
+- **Update frequency**: how fresh the data is
 
 ## Cross-Reference Potential
 
-Which other data sources can be joined to this one, and on what keys. Reference
-other sources by their **exact name** as it appears in index.md.
+Which other sources this one joins to, and on what key (package name + ecosystem,
+version, hash, account/email, C2 domain, advisory ID). Reference other sources by
+their **exact name** as it appears in index.md.
 
 ## Data Quality
 
-Known issues: inconsistent formatting, missing fields, duplicates.
+Known issues: stale/deprecated fields, coverage gaps, false positives/negatives.
 
 ## References
 
-Links to official documentation, data dictionaries, and prior analyses.
+Links to official docs, the API reference, and the data schema.
 """
 
 _DEFAULT_WIKI_INDEX = """# Data Sources Wiki — Index

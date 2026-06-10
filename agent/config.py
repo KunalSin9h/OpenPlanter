@@ -33,6 +33,8 @@ class AgentConfig:
     cerebras_api_key: str | None = None
     exa_api_key: str | None = None
     voyage_api_key: str | None = None
+    voyage_model: str = "voyage-3.5"
+    github_token: str | None = None
     max_depth: int = 4
     max_steps_per_call: int = 100
     max_observation_chars: int = 6000
@@ -50,7 +52,6 @@ class AgentConfig:
     acceptance_criteria: bool = True
     max_plan_chars: int = 40_000
     max_turn_summaries: int = 50
-    demo: bool = False
 
     @classmethod
     def from_env(cls, workspace: str | Path) -> "AgentConfig":
@@ -64,6 +65,7 @@ class AgentConfig:
         cerebras_api_key = os.getenv("OPENPLANTER_CEREBRAS_API_KEY") or os.getenv("CEREBRAS_API_KEY")
         exa_api_key = os.getenv("OPENPLANTER_EXA_API_KEY") or os.getenv("EXA_API_KEY")
         voyage_api_key = os.getenv("OPENPLANTER_VOYAGE_API_KEY") or os.getenv("VOYAGE_API_KEY")
+        github_token = os.getenv("OPENPLANTER_GITHUB_TOKEN") or os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
         openai_base_url = os.getenv("OPENPLANTER_OPENAI_BASE_URL") or os.getenv(
             "OPENPLANTER_BASE_URL",
             "https://api.openai.com/v1",
@@ -87,6 +89,8 @@ class AgentConfig:
             cerebras_api_key=cerebras_api_key,
             exa_api_key=exa_api_key,
             voyage_api_key=voyage_api_key,
+            voyage_model=os.getenv("OPENPLANTER_VOYAGE_MODEL", "voyage-3.5"),
+            github_token=github_token,
             max_depth=int(os.getenv("OPENPLANTER_MAX_DEPTH", "4")),
             max_steps_per_call=int(os.getenv("OPENPLANTER_MAX_STEPS", "100")),
             max_observation_chars=int(os.getenv("OPENPLANTER_MAX_OBS_CHARS", "6000")),
@@ -104,5 +108,4 @@ class AgentConfig:
             acceptance_criteria=os.getenv("OPENPLANTER_ACCEPTANCE_CRITERIA", "true").strip().lower() in ("1", "true", "yes"),
             max_plan_chars=int(os.getenv("OPENPLANTER_MAX_PLAN_CHARS", "40000")),
             max_turn_summaries=int(os.getenv("OPENPLANTER_MAX_TURN_SUMMARIES", "50")),
-            demo=os.getenv("OPENPLANTER_DEMO", "").strip().lower() in ("1", "true", "yes"),
         )

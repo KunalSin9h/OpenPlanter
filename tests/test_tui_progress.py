@@ -141,7 +141,6 @@ class TestEngineCancellation:
         config.max_plan_chars = 5000
         config.recursive = False
         config.acceptance_criteria = False
-        config.demo = False
 
         engine = RLMEngine(
             model=model,

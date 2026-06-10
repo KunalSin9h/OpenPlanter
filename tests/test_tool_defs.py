@@ -35,6 +35,8 @@ class ToolDefinitionsTests(unittest.TestCase):
             "run_shell", "run_shell_bg", "check_shell_bg", "kill_shell_bg",
             "think", "subtask", "execute",
             "list_artifacts", "read_artifact",
+            "osv_query", "depsdev_lookup", "registry_metadata", "download_package",
+            "github_code_search", "yara_scan", "search_wiki",
         }
         self.assertEqual(set(names), expected)
 

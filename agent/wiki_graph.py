@@ -25,16 +25,11 @@ except ImportError:  # pragma: no cover
 # ---------------------------------------------------------------------------
 
 CATEGORY_COLORS: dict[str, str] = {
-    "campaign-finance": "green",
-    "government-contracts": "yellow",
-    "corporate-registries": "cyan",
-    "financial": "magenta",
-    "lobbying": "red",
-    "nonprofits": "blue",
-    "regulatory-enforcement": "bright_red",
-    "sanctions": "bright_magenta",
-    "international": "bright_cyan",
-    "infrastructure": "bright_green",
+    "registries": "green",
+    "advisories": "yellow",
+    "code-search": "cyan",
+    "threat-intel": "bright_red",
+    "scanners": "bright_magenta",
 }
 
 DEFAULT_NODE_COLOR = "white"
@@ -59,14 +54,14 @@ class WikiEntry:
     """A single data source entry in the wiki."""
 
     name: str
-    category: str  # e.g. "campaign-finance"
-    rel_path: str  # relative path from wiki root, e.g. "campaign-finance/fec-federal.md"
+    category: str  # e.g. "advisories"
+    rel_path: str  # relative path from wiki root, e.g. "advisories/osv.md"
     title: str = ""  # extracted from # heading in the file
     cross_refs: list[str] = field(default_factory=list)  # raw bold text from cross-ref section
 
 
 def _category_slug(display_name: str) -> str:
-    """Convert a display category name to a slug: 'Campaign Finance' -> 'campaign-finance'."""
+    """Convert a display category name to a slug: 'Code Search' -> 'code-search'."""
     return display_name.strip().lower().replace(" & ", "-").replace(" ", "-")
 
 
@@ -77,7 +72,7 @@ def parse_index(wiki_dir: Path) -> list[WikiEntry]:
     and the entry link may appear in any table column.  The entry name is taken
     from the first non-link, non-empty cell (falling back to the link text).
     This accepts both the canonical baseline layout
-    (``| Name | Jurisdiction | [link](path) |``) and looser tables the model
+    (``| Name | Scope | [link](path) |``) and looser tables the model
     may produce (e.g. the link in the second column).
     """
     index_path = wiki_dir / "index.md"
@@ -202,7 +197,7 @@ def _build_name_registry(entries: list[WikiEntry]) -> dict[str, str]:
         if entry.title and entry.title.lower() != canonical.lower():
             registry[entry.title.lower()] = canonical
 
-        # Extract parenthetical aliases: "Senate Lobbying Disclosures (LD-1/LD-2)" -> "LD-1/LD-2"
+        # Extract parenthetical aliases: "OSSF Malicious Packages (OSV)" -> "OSV"
         paren_m = re.search(r"\(([^)]+)\)", canonical)
         if paren_m:
             inner = paren_m.group(1)
@@ -212,7 +207,7 @@ def _build_name_registry(entries: list[WikiEntry]) -> dict[str, str]:
             if without_paren:
                 registry[without_paren.lower()] = canonical
 
-        # Register "slash" parts: "ProPublica Nonprofit Explorer / IRS 990"
+        # Register "slash" parts: "MalwareBazaar / abuse.ch"
         if " / " in canonical:
             for part in canonical.split(" / "):
                 part = part.strip()

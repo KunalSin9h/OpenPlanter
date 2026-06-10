@@ -4,18 +4,11 @@ import { CATEGORY_COLORS, getCategoryColor } from "./colors";
 describe("CATEGORY_COLORS", () => {
   it("has all expected categories", () => {
     const expected = [
-      "campaign-finance",
-      "contracts",
-      "corporate",
-      "financial",
-      "infrastructure",
-      "international",
-      "lobbying",
-      "nonprofits",
-      "regulatory",
-      "sanctions",
-      "media",
-      "legal",
+      "registries",
+      "advisories",
+      "code-search",
+      "threat-intel",
+      "scanners",
     ];
     for (const cat of expected) {
       expect(CATEGORY_COLORS[cat]).toBeDefined();
@@ -31,9 +24,9 @@ describe("CATEGORY_COLORS", () => {
 
 describe("getCategoryColor", () => {
   it("returns correct color for known category", () => {
-    expect(getCategoryColor("contracts")).toBe("#79c0ff");
-    expect(getCategoryColor("corporate")).toBe("#56d364");
-    expect(getCategoryColor("sanctions")).toBe("#f778ba");
+    expect(getCategoryColor("code-search")).toBe("#79c0ff");
+    expect(getCategoryColor("registries")).toBe("#56d364");
+    expect(getCategoryColor("threat-intel")).toBe("#f97583");
   });
 
   it("returns default gray for unknown category", () => {

@@ -158,7 +158,6 @@ openplanter-agent [options]
 |------|-------------|
 | `--no-tui` | Plain REPL (no colors or spinner) |
 | `--headless` | Non-interactive mode (for CI) |
-| `--demo` | Censor entity names and workspace paths in output |
 
 ### Persistent Defaults
 
@@ -202,7 +201,6 @@ agent/                        Python CLI agent
   config.py                   Configuration dataclass
   credentials.py              Credential management
   tui.py                      Rich terminal UI
-  demo.py                     Demo mode (output censoring)
   patching.py                 File patching utilities
   settings.py                 Persistent settings
 

@@ -173,7 +173,6 @@ class RLMEngine:
             self.system_prompt = build_system_prompt(
                 self.config.recursive,
                 acceptance_criteria=self.config.acceptance_criteria,
-                demo=self.config.demo,
             )
         ac = self.config.acceptance_criteria
         tool_defs = get_tool_definitions(include_subtask=self.config.recursive, include_acceptance_criteria=ac)
@@ -971,11 +970,104 @@ class RLMEngine:
             limit = int(args.get("limit", 100) or 100)
             return False, self._read_artifact(aid, offset, limit)
 
+        if name == "osv_query":
+            pkg = str(args.get("name", "")).strip()
+            eco = str(args.get("ecosystem", "")).strip()
+            if not pkg or not eco:
+                return False, "osv_query requires name and ecosystem"
+            version = args.get("version")
+            return False, self.tools.osv_query(pkg, eco, str(version).strip() if version else None)
+
+        if name == "depsdev_lookup":
+            system = str(args.get("system", "")).strip()
+            pkg = str(args.get("name", "")).strip()
+            if not system or not pkg:
+                return False, "depsdev_lookup requires system and name"
+            version = args.get("version")
+            return False, self.tools.depsdev_lookup(system, pkg, str(version).strip() if version else None)
+
+        if name == "registry_metadata":
+            eco = str(args.get("ecosystem", "")).strip()
+            pkg = str(args.get("name", "")).strip()
+            if not eco or not pkg:
+                return False, "registry_metadata requires ecosystem and name"
+            return False, self.tools.registry_metadata(eco, pkg)
+
+        if name == "download_package":
+            eco = str(args.get("ecosystem", "")).strip()
+            pkg = str(args.get("name", "")).strip()
+            if not eco or not pkg:
+                return False, "download_package requires ecosystem and name"
+            version = args.get("version")
+            dest = args.get("dest")
+            return False, self.tools.download_package(
+                eco, pkg,
+                str(version).strip() if version else None,
+                str(dest).strip() if dest else None,
+            )
+
+        if name == "github_code_search":
+            query = str(args.get("query", "")).strip()
+            if not query:
+                return False, "github_code_search requires a query"
+            raw_limit = args.get("limit", 30)
+            limit = raw_limit if isinstance(raw_limit, int) else 30
+            language = args.get("language")
+            return False, self.tools.github_code_search(
+                query, limit=limit, language=str(language).strip() if language else None
+            )
+
+        if name == "yara_scan":
+            rules = str(args.get("rules", ""))
+            target_path = str(args.get("target_path", "")).strip()
+            if not rules.strip() or not target_path:
+                return False, "yara_scan requires rules and target_path"
+            rules_is_path = bool(args.get("rules_is_path", False))
+            return False, self.tools.yara_scan(rules, target_path, rules_is_path=rules_is_path)
+
+        if name == "search_wiki":
+            query = str(args.get("query", "")).strip()
+            if not query:
+                return False, "search_wiki requires a query"
+            raw_k = args.get("top_k", 5)
+            top_k = raw_k if isinstance(raw_k, int) else 5
+            return False, self._search_wiki(query, top_k)
+
         return False, f"Unknown action type: {name}"
 
     # ------------------------------------------------------------------
     # Artifact helpers
     # ------------------------------------------------------------------
+
+    def _search_wiki(self, query: str, top_k: int = 5) -> str:
+        """Semantic search over the runtime wiki using Voyage embeddings.
+
+        Degrades gracefully when no Voyage key is configured or the optional
+        embeddings module/network is unavailable, telling the agent to fall back
+        to index.md + search_files/read_file.
+        """
+        top_k = max(1, min(int(top_k or 5), 20))
+        wiki_dir = (self.config.workspace / self.config.session_root_dir / "wiki").resolve()
+        fallback = (
+            "search_wiki unavailable. Read .openplanter/wiki/index.md and use "
+            "search_files/read_file over .openplanter/wiki/ instead."
+        )
+        if not wiki_dir.is_dir():
+            return fallback + " (no wiki directory found yet)"
+        try:
+            from . import wiki_embeddings
+        except ImportError:
+            return fallback
+        try:
+            return wiki_embeddings.search_wiki(
+                wiki_dir=wiki_dir,
+                query=query,
+                top_k=top_k,
+                api_key=self.config.voyage_api_key,
+                model=getattr(self.config, "voyage_model", "voyage-3.5"),
+            )
+        except Exception as exc:  # noqa: BLE001 - never crash the loop on retrieval
+            return f"{fallback} (search_wiki error: {exc})"
 
     def _list_artifacts(self) -> str:
         """List available artifacts."""
