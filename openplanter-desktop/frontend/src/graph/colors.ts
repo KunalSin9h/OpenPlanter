@@ -1,17 +1,10 @@
-/** Category color map for graph nodes. */
+/** Category color map for graph nodes (OSS supply-chain malware wiki). */
 export const CATEGORY_COLORS: Record<string, string> = {
-  "campaign-finance": "#f97583",
-  "contracts": "#79c0ff",
-  "corporate": "#56d364",
-  "financial": "#d2a8ff",
-  "infrastructure": "#ffa657",
-  "international": "#ff7b72",
-  "lobbying": "#e3b341",
-  "nonprofits": "#a5d6ff",
-  "regulatory": "#7ee787",
-  "sanctions": "#f778ba",
-  "media": "#c9d1d9",
-  "legal": "#b392f0",
+  "registries": "#56d364",
+  "advisories": "#e3b341",
+  "code-search": "#79c0ff",
+  "threat-intel": "#f97583",
+  "scanners": "#d2a8ff",
 };
 
 export function getCategoryColor(category: string): string {
