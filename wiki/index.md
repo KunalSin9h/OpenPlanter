@@ -1,74 +1,52 @@
 # Data Sources Wiki
 
-Reference documentation for every dataset OpenPlanter can ingest. Each entry follows a [standardized template](template.md) so agents and contributors can quickly understand access methods, schema, and cross-reference potential.
+Reference documentation for every source OpenPlanter uses to hunt malicious open-source
+packages. Each entry follows a [standardized template](template.md) so agents and
+contributors can quickly understand access methods, schema, and cross-reference potential.
+Focus ecosystems: **npm** and **PyPI**. All sources here are open/public.
 
 ## Sources by Category
 
-### Campaign Finance
+## Registries
 
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| Massachusetts OCPF | MA state & local | [massachusetts-ocpf.md](campaign-finance/massachusetts-ocpf.md) |
-| FEC Federal Campaign Finance | US federal | [fec-federal.md](campaign-finance/fec-federal.md) |
+| Source | Ecosystem | Link |
+|--------|-----------|------|
+| npm Registry | npm | [npm-registry.md](registries/npm-registry.md) |
+| PyPI JSON API | PyPI | [pypi-json.md](registries/pypi-json.md) |
 
-### Government Contracts
+## Advisories
 
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| Boston Open Checkbook | City of Boston | [boston-open-checkbook.md](contracts/boston-open-checkbook.md) |
-| USASpending.gov | US federal | [usaspending.md](contracts/usaspending.md) |
-| SAM.gov | US federal | [sam-gov.md](contracts/sam-gov.md) |
+| Source | Scope | Link |
+|--------|-------|------|
+| OSV.dev | Multi-ecosystem vulns + malware | [osv.md](advisories/osv.md) |
+| OSSF Malicious Packages | Curated malicious-package dataset | [ossf-malicious-packages.md](advisories/ossf-malicious-packages.md) |
+| deps.dev | Package metadata + advisories + provenance | [deps-dev.md](advisories/deps-dev.md) |
+| Advisory Databases | PyPA advisory-db + GitHub Advisory DB | [advisory-databases.md](advisories/advisory-databases.md) |
 
-### Corporate Registries
+## Code Search
 
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| MA Secretary of Commonwealth | Massachusetts | [massachusetts-soc.md](corporate/massachusetts-soc.md) |
-| SEC EDGAR | US public companies | [sec-edgar.md](corporate/sec-edgar.md) |
+| Source | Scope | Link |
+|--------|-------|------|
+| GitHub Code Search | Source-hosting IOC search | [github-code-search.md](code-search/github-code-search.md) |
 
-### Financial
+## Threat Intel
 
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| FDIC BankFind | US banks & thrifts | [fdic-bankfind.md](financial/fdic-bankfind.md) |
+| Source | Scope | Link |
+|--------|-------|------|
+| abuse.ch | Malware samples + IOC feeds | [abuse-ch.md](threat-intel/abuse-ch.md) |
+| VirusTotal | File/URL/hash reputation | [virustotal.md](threat-intel/virustotal.md) |
 
-### Lobbying
+## Scanners
 
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| Senate Lobbying Disclosures (LD-1/LD-2) | US federal | [senate-ld.md](lobbying/senate-ld.md) |
-
-### Nonprofits
-
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| ProPublica Nonprofit Explorer / IRS 990 | US nationwide | [propublica-990.md](nonprofits/propublica-990.md) |
-
-### Regulatory & Enforcement
-
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| EPA ECHO | US nationwide | [epa-echo.md](regulatory/epa-echo.md) |
-| OSHA Inspections | US nationwide | [osha-inspections.md](regulatory/osha-inspections.md) |
-
-### Sanctions
-
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| OFAC SDN List | International | [ofac-sdn.md](sanctions/ofac-sdn.md) |
-
-### International
-
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| ICIJ Offshore Leaks Database | Global | [icij-offshore-leaks.md](international/icij-offshore-leaks.md) |
-
-### Infrastructure
-
-| Source | Jurisdiction | Link |
-|--------|-------------|------|
-| US Census Bureau ACS | US nationwide | [census-acs.md](infrastructure/census-acs.md) |
+| Source | Scope | Link |
+|--------|-------|------|
+| YARA-X | Rule authoring + matching | [yara-x.md](scanners/yara-x.md) |
+| GuardDog | Heuristic package scanner | [guarddog.md](scanners/guarddog.md) |
+| OSV-Scanner | SCA + lockfile scanning | [osv-scanner.md](scanners/osv-scanner.md) |
 
 ## Contributing
 
-To add a new data source, copy [template.md](template.md) into the appropriate category folder and fill in each section. Link it from this index when complete.
+To add a new source, copy [template.md](template.md) into the appropriate category folder
+and fill in each section. Link it from this index under the right `## Category` heading.
+In the entry's "Cross-Reference Potential" section, reference other sources by their
+**exact bold name** from this index so the knowledge graph wires the edge.

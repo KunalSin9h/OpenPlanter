@@ -25,16 +25,11 @@ except ImportError:  # pragma: no cover
 # ---------------------------------------------------------------------------
 
 CATEGORY_COLORS: dict[str, str] = {
-    "campaign-finance": "green",
-    "government-contracts": "yellow",
-    "corporate-registries": "cyan",
-    "financial": "magenta",
-    "lobbying": "red",
-    "nonprofits": "blue",
-    "regulatory-enforcement": "bright_red",
-    "sanctions": "bright_magenta",
-    "international": "bright_cyan",
-    "infrastructure": "bright_green",
+    "registries": "green",
+    "advisories": "yellow",
+    "code-search": "cyan",
+    "threat-intel": "bright_red",
+    "scanners": "bright_magenta",
 }
 
 DEFAULT_NODE_COLOR = "white"

@@ -1,40 +1,45 @@
-# [Data Source Name]
+# [Source Name]
 
 ## Summary
 
-One-paragraph overview: what this dataset contains, who publishes it, and why it matters for investigations.
+One-paragraph overview: what this source provides, who runs it, and how it helps a
+supply-chain malware investigation (triage, pivoting, attribution, or detection).
 
 ## Access Methods
 
-How to obtain the data (bulk download, API, scraping, FOIA). Include URLs, authentication requirements, and rate limits.
+How to query or obtain the data (REST API, bulk download, CLI, git clone). Include base
+URLs, authentication requirements, and rate limits. Note whether an API key is needed and
+whether the source is free.
 
 ## Data Schema
 
-Key fields, record types, and relationships between tables. Include a field table if the schema is complex.
+Key endpoints, request parameters, and the response fields that matter for investigation.
+Include a field table if the schema is non-trivial.
 
 ## Coverage
 
-- **Jurisdiction**: Geographic or organizational scope
-- **Time range**: Earliest and latest records available
-- **Update frequency**: How often the publisher refreshes the data
-- **Volume**: Approximate record counts
+- **Ecosystems**: npm, PyPI, etc.
+- **Scope**: what's included vs. excluded
+- **Update frequency**: how fresh the data is
+- **Volume**: approximate counts if known
 
 ## Cross-Reference Potential
 
-Which other data sources can be joined to this one, and on what keys (entity names, IDs, addresses, dates).
+Which other sources in this wiki this one joins to, and on what key (package name +
+ecosystem, version, hash, account/email, C2 domain, advisory ID). Reference the other
+sources by their **exact bold name** as it appears in index.md so the knowledge graph
+wires the edge.
 
 ## Data Quality
 
-Known issues: inconsistent formatting, missing fields, duplicates, encoding problems.
+Known issues: stale/deprecated fields, coverage gaps, rate-limit pain, false
+positives/negatives.
 
 ## Acquisition Script
 
-Path to any scripts in the repo that download or transform this data, or instructions for writing one.
-
-## Legal & Licensing
-
-Public records law citation, terms of use, or license governing redistribution and derived works.
+Example queries or commands (curl, gh, the agent's first-class tools) to pull from this
+source. Never execute downloaded package code as part of acquisition.
 
 ## References
 
-Links to official documentation, data dictionaries, and prior analyses that used this source.
+Links to official docs, the API reference, and the data schema.
